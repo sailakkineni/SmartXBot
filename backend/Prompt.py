@@ -830,4 +830,3 @@ When generating the output resume, follow these strict editing constraints:
    b. TECHNICAL SKILLS: Update only the skill item values. Do NOT modify or remove the bolded side headings (e.g., **Project Management:**, **Tools:**, **Methodologies:**).
    c. PROFESSIONAL EXPERIENCE: Update ONLY the bullet points. Do NOT touch company names, job titles, employment dates, or line formatting.
    d. NON-TARGET SECTIONS: Leave all other section headings, candidate contact headers, and education entries 100% UNTOUCHED.
-============================================================
