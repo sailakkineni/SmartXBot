@@ -53,18 +53,58 @@ class ResumeTailorEngine:
         # Determine provider
         selected_provider = provider if provider != "auto" else self.config.get("provider", "auto")
         
-        # Resolve API Key based on provider preference
+        # Helper to safely retrieve key from Streamlit st.secrets
+        def get_st_secret(secret_name: str) -> Optional[str]:
+            try:
+                import streamlit as st
+                if hasattr(st, "secrets") and st.secrets and secret_name in st.secrets:
+                    val = st.secrets[secret_name]
+                    if isinstance(val, str) and val.strip():
+                        return val.strip()
+            except Exception:
+                pass
+            return None
+
+        # Resolve API Key based on provider preference across st.secrets, config.yaml, and os.getenv
         if api_key:
             self.api_key = api_key
         elif selected_provider == "openai":
-            self.api_key = self.config.get("openai_api_key") or os.getenv("OPENAI_API_KEY") or self.config.get("api_key")
+            self.api_key = (
+                get_st_secret("OPENAI_API_KEY") 
+                or get_st_secret("openai_api_key") 
+                or self.config.get("openai_api_key") 
+                or os.getenv("OPENAI_API_KEY") 
+                or self.config.get("api_key")
+                or get_st_secret("api_key")
+            )
         elif selected_provider == "groq":
-            self.api_key = self.config.get("groq_api_key") or os.getenv("GROQ_API_KEY") or self.config.get("api_key")
+            self.api_key = (
+                get_st_secret("GROQ_API_KEY") 
+                or get_st_secret("groq_api_key") 
+                or self.config.get("groq_api_key") 
+                or os.getenv("GROQ_API_KEY") 
+                or self.config.get("api_key")
+                or get_st_secret("api_key")
+            )
         elif selected_provider == "gemini":
-            self.api_key = self.config.get("gemini_api_key") or os.getenv("GEMINI_API_KEY") or self.config.get("api_key")
+            self.api_key = (
+                get_st_secret("GEMINI_API_KEY") 
+                or get_st_secret("gemini_api_key") 
+                or self.config.get("gemini_api_key") 
+                or os.getenv("GEMINI_API_KEY") 
+                or self.config.get("api_key")
+                or get_st_secret("api_key")
+            )
         else:
             self.api_key = (
-                self.config.get("openai_api_key") 
+                get_st_secret("OPENAI_API_KEY")
+                or get_st_secret("GROQ_API_KEY")
+                or get_st_secret("GEMINI_API_KEY")
+                or get_st_secret("openai_api_key")
+                or get_st_secret("groq_api_key")
+                or get_st_secret("gemini_api_key")
+                or get_st_secret("api_key")
+                or self.config.get("openai_api_key") 
                 or self.config.get("groq_api_key") 
                 or self.config.get("api_key") 
                 or os.getenv("OPENAI_API_KEY") 
@@ -73,7 +113,7 @@ class ResumeTailorEngine:
             )
         
         if not self.api_key:
-            raise ValueError("API Key is required. Please provide a Groq, Google Gemini, or OpenAI API Key in config.yaml, sidebar, or .env file.")
+            raise ValueError("API Key is required. Please provide an OpenAI, Groq, or Gemini API Key in Streamlit Cloud Secrets Manager, config.yaml, or .env file.")
         
         # Load full Prompt rules from Prompt.py
         self.base_system_prompt = load_prompt_instructions()
