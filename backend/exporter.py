@@ -60,31 +60,23 @@ def update_docx_paragraph_safely(para: docx.text.paragraph.Paragraph, orig_text:
         para.runs[0].text = final_text
         return True
         
-    # Multi-run paragraph: update text runs while preserving date/location/tab runs
-    updated = False
-    for r in para.runs:
-        r_str = r.text
-        is_date_or_tab = bool(re.search(r"\b(20\d\d|19\d\d|Present|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec|Remote|Hybrid)\b", r_str, re.IGNORECASE)) or "\t" in r_str
-        
-        if not is_date_or_tab:
-            if not updated:
-                r.text = final_text
-                updated = True
-            else:
-                r.text = ""
-                
-    if not updated and para.runs:
-        para.runs[0].text = final_text
-        
+    # Multi-run paragraph: set text on first run and clear remaining runs safely
+    para.runs[0].text = final_text
+    for r in para.runs[1:]:
+        if "\t" in r.text:
+            r.text = "\t"
+        else:
+            r.text = ""
+            
     return True
 
-def create_docx(markdown_text: str, original_docx_bytes: Optional[bytes] = None, bullet_improvements: Optional[list] = None) -> BytesIO:
+def create_docx(markdown_text: str, original_docx_bytes: Optional[bytes] = None, bullet_improvements: Optional[list] = None) -> bytes:
     """
     Converts markdown formatted resume into a Word (.docx) file.
-    If original_docx_bytes is provided, modifies the candidate's ORIGINAL .docx file in-place,
+    If original_docx_bytes is provided and is a valid DOCX package, modifies the candidate's ORIGINAL .docx file in-place,
     preserving 100% of original fonts, styles, centered titles, dates, line spacing, gaps, and margins.
     """
-    if original_docx_bytes and len(original_docx_bytes) > 0:
+    if original_docx_bytes and len(original_docx_bytes) > 0 and original_docx_bytes.startswith(b"PK\x03\x04"):
         try:
             doc = docx.Document(BytesIO(original_docx_bytes))
             
@@ -110,8 +102,7 @@ def create_docx(markdown_text: str, original_docx_bytes: Optional[bytes] = None,
 
             output = BytesIO()
             doc.save(output)
-            output.seek(0)
-            return output
+            return output.getvalue()
         except Exception as e:
             print(f"In-place docx modification failed: {e}. Falling back to template generation.")
 
@@ -194,10 +185,9 @@ def create_docx(markdown_text: str, original_docx_bytes: Optional[bytes] = None,
                 
     output = BytesIO()
     doc.save(output)
-    output.seek(0)
-    return output
+    return output.getvalue()
 
-def create_pdf(markdown_text: str) -> BytesIO:
+def create_pdf(markdown_text: str) -> bytes:
     """Converts markdown formatted resume into a clean ATS PDF file using ReportLab."""
     output = BytesIO()
     doc = SimpleDocTemplate(
@@ -298,5 +288,4 @@ def create_pdf(markdown_text: str) -> BytesIO:
             story.append(Paragraph(formatted_line, body_style))
             
     doc.build(story)
-    output.seek(0)
-    return output
+    return output.getvalue()

@@ -2,6 +2,8 @@
 .env
 *.env
 backend/config.yaml
+.streamlit/secrets.toml
+.streamlit/
 
 # Python Bytecode & Cache
 __pycache__/

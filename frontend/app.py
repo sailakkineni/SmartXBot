@@ -354,6 +354,20 @@ if run_process:
                 )
                 st.session_state.tailored_result = tailored
                 
+                # Pre-generate clean binary byte blobs for downloads
+                tailored_md = tailored.get("tailored_resume", "")
+                improvements = tailored.get("bullet_improvements", [])
+                orig_bytes = st.session_state.get("resume_bytes")
+                if orig_bytes and not orig_bytes.startswith(b"PK\x03\x04"):
+                    orig_bytes = None
+                    
+                st.session_state.tailored_docx_bytes = create_docx(
+                    tailored_md,
+                    original_docx_bytes=orig_bytes,
+                    bullet_improvements=improvements
+                )
+                st.session_state.tailored_pdf_bytes = create_pdf(tailored_md)
+                
             except Exception as e:
                 st.error(f"❌ Error during processing: {str(e)}")
 
@@ -379,18 +393,22 @@ if st.session_state.tailored_result:
     </div>
     """, unsafe_allow_html=True)
 
-    # 1-Click Download Bar
-    col_dl1, col_dl2, col_dl3 = st.columns(3)
+    # Fallback pre-generation if session_state missed it
+    if "tailored_docx_bytes" not in st.session_state or not st.session_state.tailored_docx_bytes:
+        orig_bytes = st.session_state.get("resume_bytes")
+        if orig_bytes and not orig_bytes.startswith(b"PK\x03\x04"):
+            orig_bytes = None
+        st.session_state.tailored_docx_bytes = create_docx(tailored_md, original_docx_bytes=orig_bytes, bullet_improvements=improvements)
+    if "tailored_pdf_bytes" not in st.session_state or not st.session_state.tailored_pdf_bytes:
+        st.session_state.tailored_pdf_bytes = create_pdf(tailored_md)
+
+    # 1-Click Download Bar (.docx and .pdf only)
+    col_dl1, col_dl2 = st.columns(2)
     
     with col_dl1:
-        docx_bytes = create_docx(
-            tailored_md,
-            original_docx_bytes=st.session_state.get("resume_bytes"),
-            bullet_improvements=improvements
-        )
         st.download_button(
             label="📄 Download Word (.docx)",
-            data=docx_bytes,
+            data=st.session_state.tailored_docx_bytes,
             file_name="tailored_resume.docx",
             mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             use_container_width=True,
@@ -398,22 +416,13 @@ if st.session_state.tailored_result:
         )
         
     with col_dl2:
-        pdf_bytes = create_pdf(tailored_md)
         st.download_button(
             label="📕 Download PDF (.pdf)",
-            data=pdf_bytes,
+            data=st.session_state.tailored_pdf_bytes,
             file_name="tailored_resume.pdf",
             mime="application/pdf",
-            use_container_width=True
-        )
-        
-    with col_dl3:
-        st.download_button(
-            label="📝 Download Markdown (.md)",
-            data=tailored_md,
-            file_name="tailored_resume.md",
-            mime="text/markdown",
-            use_container_width=True
+            use_container_width=True,
+            type="primary"
         )
 
     st.markdown("---")

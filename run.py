@@ -8,7 +8,7 @@ def main():
     app_path = os.path.join(project_root, "frontend", "app.py")
     
     cmd = [sys.executable, "-m", "streamlit", "run", app_path]
-    print(f"🚀 Launching SmartXBot from frontend/app.py...")
+    print("Launching SmartXBot from frontend/app.py...")
     try:
         subprocess.run(cmd)
     except KeyboardInterrupt:
