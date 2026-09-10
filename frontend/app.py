@@ -239,23 +239,6 @@ with st.sidebar:
     - **One-click Word & PDF Export**
     """)
 
-
-
-# Callbacks for File Uploaders
-def handle_jd_upload():
-    if st.session_state.jd_upload is not None:
-        parsed_text = parse_uploaded_file(st.session_state.jd_upload)
-        st.session_state.jd_text = parsed_text
-        st.session_state.jd_text_area = parsed_text
-
-def handle_res_upload():
-    if st.session_state.res_upload is not None:
-        file_obj = st.session_state.res_upload
-        parsed_text = parse_uploaded_file(file_obj)
-        st.session_state.resume_text = parsed_text
-        if hasattr(file_obj, "getvalue"):
-            st.session_state.resume_bytes = file_obj.getvalue()
-
 # Session State Initialization
 if "jd_text" not in st.session_state:
     st.session_state.jd_text = ""
@@ -288,13 +271,13 @@ with col_jd:
     uploaded_jd = st.file_uploader(
         "Upload JD (.pdf, .docx, .txt)",
         type=["pdf", "docx", "txt"],
-        key="jd_upload",
-        on_change=handle_jd_upload
+        key="jd_upload"
     )
-    if uploaded_jd and not st.session_state.jd_text:
-        st.session_state.jd_text = parse_uploaded_file(uploaded_jd)
-        st.session_state.jd_text_area = st.session_state.jd_text
-        
+    if uploaded_jd is not None:
+        parsed_jd = parse_uploaded_file(uploaded_jd)
+        st.session_state.jd_text = parsed_jd
+        st.session_state.jd_text_area = parsed_jd
+
     jd_input_text = st.text_area(
         "Or paste Job Description text here:",
         height=280,
@@ -307,12 +290,14 @@ with col_res:
     uploaded_res = st.file_uploader(
         "Upload Resume File (.pdf, .docx, .txt)",
         type=["pdf", "docx", "txt"],
-        key="res_upload",
-        on_change=handle_res_upload
+        key="res_upload"
     )
-    if uploaded_res and not st.session_state.resume_text:
-        st.session_state.resume_text = parse_uploaded_file(uploaded_res)
-    
+    if uploaded_res is not None:
+        parsed_res = parse_uploaded_file(uploaded_res)
+        st.session_state.resume_text = parsed_res
+        if hasattr(uploaded_res, "getvalue"):
+            st.session_state.resume_bytes = uploaded_res.getvalue()
+
     if st.session_state.resume_text:
         st.success("✅ Candidate Resume Loaded")
         with st.expander("👁️ View Input Document Preview", expanded=False):
