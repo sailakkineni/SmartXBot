@@ -224,6 +224,12 @@ with st.sidebar:
         index=0
     )
     
+    user_api_key = st.text_input(
+        "🔑 API Key (Optional Override)",
+        type="password",
+        help="Paste OpenAI/Groq/Gemini API key if not configured in Streamlit Cloud Secrets"
+    )
+    
     st.markdown("---")
     st.markdown("### 💡 Features")
     st.markdown("""
@@ -333,7 +339,7 @@ if run_process:
     else:
         with st.spinner("⚡ Tailoring resume and optimizing ATS keywords..."):
             try:
-                engine = ResumeTailorEngine()
+                engine = ResumeTailorEngine(api_key=user_api_key.strip() if user_api_key.strip() else None)
                 
                 analysis = engine.analyze_match(
                     jd_text=st.session_state.jd_text,

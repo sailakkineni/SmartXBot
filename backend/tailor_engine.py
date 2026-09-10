@@ -57,10 +57,25 @@ class ResumeTailorEngine:
         def get_st_secret(secret_name: str) -> Optional[str]:
             try:
                 import streamlit as st
-                if hasattr(st, "secrets") and st.secrets and secret_name in st.secrets:
-                    val = st.secrets[secret_name]
-                    if isinstance(val, str) and val.strip():
-                        return val.strip()
+                if hasattr(st, "secrets") and st.secrets is not None:
+                    # 1. Check get method
+                    if hasattr(st.secrets, "get"):
+                        val = st.secrets.get(secret_name)
+                        if val and isinstance(val, str) and val.strip():
+                            return val.strip()
+                    # 2. Check bracket lookup
+                    try:
+                        if secret_name in st.secrets:
+                            val = st.secrets[secret_name]
+                            if val and isinstance(val, str) and val.strip():
+                                return val.strip()
+                    except Exception:
+                        pass
+                    # 3. Check getattr
+                    if hasattr(st.secrets, secret_name):
+                        val = getattr(st.secrets, secret_name)
+                        if val and isinstance(val, str) and val.strip():
+                            return val.strip()
             except Exception:
                 pass
             return None
@@ -72,8 +87,8 @@ class ResumeTailorEngine:
             self.api_key = (
                 get_st_secret("OPENAI_API_KEY") 
                 or get_st_secret("openai_api_key") 
+                or os.getenv("OPENAI_API_KEY")
                 or self.config.get("openai_api_key") 
-                or os.getenv("OPENAI_API_KEY") 
                 or self.config.get("api_key")
                 or get_st_secret("api_key")
             )
@@ -81,8 +96,8 @@ class ResumeTailorEngine:
             self.api_key = (
                 get_st_secret("GROQ_API_KEY") 
                 or get_st_secret("groq_api_key") 
+                or os.getenv("GROQ_API_KEY")
                 or self.config.get("groq_api_key") 
-                or os.getenv("GROQ_API_KEY") 
                 or self.config.get("api_key")
                 or get_st_secret("api_key")
             )
@@ -90,8 +105,8 @@ class ResumeTailorEngine:
             self.api_key = (
                 get_st_secret("GEMINI_API_KEY") 
                 or get_st_secret("gemini_api_key") 
+                or os.getenv("GEMINI_API_KEY")
                 or self.config.get("gemini_api_key") 
-                or os.getenv("GEMINI_API_KEY") 
                 or self.config.get("api_key")
                 or get_st_secret("api_key")
             )
@@ -104,16 +119,24 @@ class ResumeTailorEngine:
                 or get_st_secret("groq_api_key")
                 or get_st_secret("gemini_api_key")
                 or get_st_secret("api_key")
-                or self.config.get("openai_api_key") 
-                or self.config.get("groq_api_key") 
-                or self.config.get("api_key") 
                 or os.getenv("OPENAI_API_KEY") 
                 or os.getenv("GROQ_API_KEY") 
                 or os.getenv("GEMINI_API_KEY")
+                or self.config.get("openai_api_key") 
+                or self.config.get("groq_api_key") 
+                or self.config.get("api_key") 
             )
         
         if not self.api_key:
-            raise ValueError("API Key is required. Please provide an OpenAI, Groq, or Gemini API Key in Streamlit Cloud Secrets Manager, config.yaml, or .env file.")
+            raise ValueError("API Key is required. Please provide an OpenAI, Groq, or Gemini API Key in Streamlit Cloud Secrets Manager, sidebar, config.yaml, or .env file.")
+            
+        # Ensure environment variable is populated for SDK clients
+        if self.api_key.startswith("sk-"):
+            os.environ["OPENAI_API_KEY"] = self.api_key
+        elif self.api_key.startswith("gsk_"):
+            os.environ["GROQ_API_KEY"] = self.api_key
+        else:
+            os.environ["GEMINI_API_KEY"] = self.api_key
         
         # Load full Prompt rules from Prompt.py
         self.base_system_prompt = load_prompt_instructions()
