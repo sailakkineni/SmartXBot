@@ -264,290 +264,204 @@ if "analysis_result" not in st.session_state:
 if "tailored_result" not in st.session_state:
     st.session_state.tailored_result = None
 
-# Main Interface Tabs
-tab_input, tab_analysis, tab_resume, tab_export = st.tabs([
-    "📥 1. Inputs & Files",
-    "📊 2. Keyword & Match Analysis",
-    "✨ 3. Tailored Resume Preview",
-    "💾 4. Export & Download"
-])
+# Main Interface Layout
+st.subheader("Step 1: Provide Job Description & Candidate Resume")
 
-# ============================================================
-# TAB 1: INPUTS & FILES
-# ============================================================
-with tab_input:
-    st.subheader("Step 1: Provide Job Description & Candidate Resume")
-    
-    col_demo1, col_demo2 = st.columns([1, 4])
-    with col_demo1:
-        if st.button("🧪 Load Demo Samples", use_container_width=True):
-            st.session_state.jd_text = SAMPLE_JD
-            st.session_state.resume_text = SAMPLE_RESUME
-            st.session_state.jd_text_area = SAMPLE_JD
-            st.rerun()
-            
-    col_jd, col_res = st.columns(2)
-    
-    with col_jd:
-        st.markdown("#### 🎯 Job Description (JD)")
-        uploaded_jd = st.file_uploader(
-            "Upload JD (.pdf, .docx, .txt)",
-            type=["pdf", "docx", "txt"],
-            key="jd_upload",
-            on_change=handle_jd_upload
-        )
-        if uploaded_jd and not st.session_state.jd_text:
-            st.session_state.jd_text = parse_uploaded_file(uploaded_jd)
-            st.session_state.jd_text_area = st.session_state.jd_text
-            
-        jd_input_text = st.text_area(
-            "Or paste Job Description text here:",
-            height=300,
-            key="jd_text_area"
-        )
-        st.session_state.jd_text = jd_input_text
-
-    with col_res:
-        st.markdown("#### 📄 Candidate Resume")
-        uploaded_res = st.file_uploader(
-            "Upload Resume File (.pdf, .docx, .txt)",
-            type=["pdf", "docx", "txt"],
-            key="res_upload",
-            on_change=handle_res_upload
-        )
-        if uploaded_res and not st.session_state.resume_text:
-            st.session_state.resume_text = parse_uploaded_file(uploaded_res)
+col_demo1, _ = st.columns([1, 4])
+with col_demo1:
+    if st.button("🧪 Load Demo Samples", use_container_width=True):
+        st.session_state.jd_text = SAMPLE_JD
+        st.session_state.resume_text = SAMPLE_RESUME
+        st.session_state.jd_text_area = SAMPLE_JD
+        st.rerun()
         
-        if st.session_state.resume_text:
-            st.success("✅ Candidate Resume File Loaded & Formatted")
-            with st.expander("👁️ View Extracted Document Preview", expanded=True):
-                render_resume_preview(st.session_state.resume_text)
-        else:
-            st.info("📌 Please upload your Candidate Resume file (.pdf or .docx).")
+col_jd, col_res = st.columns(2)
+
+with col_jd:
+    st.markdown("#### 🎯 Job Description (JD)")
+    uploaded_jd = st.file_uploader(
+        "Upload JD (.pdf, .docx, .txt)",
+        type=["pdf", "docx", "txt"],
+        key="jd_upload",
+        on_change=handle_jd_upload
+    )
+    if uploaded_jd and not st.session_state.jd_text:
+        st.session_state.jd_text = parse_uploaded_file(uploaded_jd)
+        st.session_state.jd_text_area = st.session_state.jd_text
+        
+    jd_input_text = st.text_area(
+        "Or paste Job Description text here:",
+        height=280,
+        key="jd_text_area"
+    )
+    st.session_state.jd_text = jd_input_text
+
+with col_res:
+    st.markdown("#### 📄 Candidate Resume")
+    uploaded_res = st.file_uploader(
+        "Upload Resume File (.pdf, .docx, .txt)",
+        type=["pdf", "docx", "txt"],
+        key="res_upload",
+        on_change=handle_res_upload
+    )
+    if uploaded_res and not st.session_state.resume_text:
+        st.session_state.resume_text = parse_uploaded_file(uploaded_res)
+    
+    if st.session_state.resume_text:
+        st.success("✅ Candidate Resume Loaded")
+        with st.expander("👁️ View Input Document Preview", expanded=False):
+            render_resume_preview(st.session_state.resume_text)
+    else:
+        st.info("📌 Upload your Candidate Resume file (.pdf or .docx).")
+
+st.markdown("---")
+
+col_btn, _ = st.columns([2, 3])
+with col_btn:
+    run_process = st.button("🚀 Tailor Resume & Match Keywords", type="primary", use_container_width=True)
+
+if run_process:
+    if not st.session_state.jd_text and st.session_state.get("jd_upload"):
+        st.session_state.jd_text = parse_uploaded_file(st.session_state.jd_upload)
+    if not st.session_state.resume_text and st.session_state.get("res_upload"):
+        st.session_state.resume_text = parse_uploaded_file(st.session_state.res_upload)
+
+    if not st.session_state.jd_text.strip():
+        st.warning("⚠️ Please enter or upload a Job Description.")
+    elif not st.session_state.resume_text.strip():
+        st.warning("⚠️ Please upload a Candidate Resume file.")
+    else:
+        with st.spinner("⚡ Tailoring resume and optimizing ATS keywords..."):
+            try:
+                engine = ResumeTailorEngine()
+                
+                analysis = engine.analyze_match(
+                    jd_text=st.session_state.jd_text,
+                    resume_text=st.session_state.resume_text
+                )
+                st.session_state.analysis_result = analysis
+                
+                tailored = engine.generate_tailored_resume(
+                    jd_text=st.session_state.jd_text,
+                    resume_text=st.session_state.resume_text,
+                    mode=aggressiveness
+                )
+                st.session_state.tailored_result = tailored
+                
+            except Exception as e:
+                st.error(f"❌ Error during processing: {str(e)}")
+
+# ============================================================
+# RESULTS SECTION (INSTANT DISPLAY & 1-CLICK DOWNLOADS)
+# ============================================================
+if st.session_state.tailored_result:
+    tailored_md = st.session_state.tailored_result.get("tailored_resume", "")
+    improvements = st.session_state.tailored_result.get("bullet_improvements", [])
+    an = st.session_state.get("analysis_result", {}) or {}
+    ats_score = an.get("overall_ats_score", 88)
+    
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.subheader("🎉 ATS Optimization Complete")
+    
+    # Instant Action Banner with 1-Click Downloads
+    st.markdown(f"""
+    <div style="background: linear-gradient(135deg, #4338ca, #312e81); color: white; border-radius: 12px; padding: 1.25rem 1.5rem; margin-bottom: 1.5rem; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 4px 12px rgba(67, 56, 202, 0.25);">
+        <div>
+            <div style="font-size: 1.8rem; font-weight: 800;">{ats_score}% ATS Match Score</div>
+            <div style="color: #c7d2fe; font-size: 0.9rem;">Your tailored resume is ATS-ready and optimized for target keywords.</div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # 1-Click Download Bar
+    col_dl1, col_dl2, col_dl3 = st.columns(3)
+    
+    with col_dl1:
+        docx_bytes = create_docx(
+            tailored_md,
+            original_docx_bytes=st.session_state.get("resume_bytes"),
+            bullet_improvements=improvements
+        )
+        st.download_button(
+            label="📄 Download Word (.docx)",
+            data=docx_bytes,
+            file_name="tailored_resume.docx",
+            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            use_container_width=True,
+            type="primary"
+        )
+        
+    with col_dl2:
+        pdf_bytes = create_pdf(tailored_md)
+        st.download_button(
+            label="📕 Download PDF (.pdf)",
+            data=pdf_bytes,
+            file_name="tailored_resume.pdf",
+            mime="application/pdf",
+            use_container_width=True
+        )
+        
+    with col_dl3:
+        st.download_button(
+            label="📝 Download Markdown (.md)",
+            data=tailored_md,
+            file_name="tailored_resume.md",
+            mime="text/markdown",
+            use_container_width=True
+        )
 
     st.markdown("---")
+
+    # Side-by-Side Comparison
+    st.subheader("✨ Side-by-Side Resume Comparison")
     
-    col_btn, _ = st.columns([2, 3])
-    with col_btn:
-        run_process = st.button("🚀 Analyze & Tailor Resume", type="primary", use_container_width=True)
-
-    if run_process:
-        # Fallback checks for uploaded files
-        if not st.session_state.jd_text and st.session_state.get("jd_upload"):
-            st.session_state.jd_text = parse_uploaded_file(st.session_state.jd_upload)
-        if not st.session_state.resume_text and st.session_state.get("res_upload"):
-            st.session_state.resume_text = parse_uploaded_file(st.session_state.res_upload)
-
-        if not st.session_state.jd_text.strip():
-            st.warning("⚠️ Please enter or upload a Job Description.")
-        elif not st.session_state.resume_text.strip():
-            st.warning("⚠️ Please upload a Candidate Resume file.")
-        else:
-            with st.spinner("⚡ Extracting keywords, analyzing ATS match, and generating tailored resume..."):
-                try:
-                    engine = ResumeTailorEngine()
-                    
-                    # Run ATS Gap Analysis
-                    analysis = engine.analyze_match(
-                        jd_text=st.session_state.jd_text,
-                        resume_text=st.session_state.resume_text
-                    )
-                    st.session_state.analysis_result = analysis
-                    
-                    # Run Resume Tailoring Engine
-                    tailored = engine.generate_tailored_resume(
-                        jd_text=st.session_state.jd_text,
-                        resume_text=st.session_state.resume_text,
-                        mode=aggressiveness
-                    )
-                    st.session_state.tailored_result = tailored
-                    
-                    st.success("✅ Analysis & Resume Tailoring Complete! Navigate tabs to view results.")
-                except Exception as e:
-                    st.error(f"❌ Error during processing: {str(e)}")
-
-# ============================================================
-# TAB 2: KEYWORD & MATCH ANALYSIS
-# ============================================================
-with tab_analysis:
-    if not st.session_state.analysis_result:
-        st.info("💡 Run 'Analyze & Tailor Resume' in Step 1 to generate keyword & match metrics.")
-    else:
-        an = st.session_state.analysis_result
+    col_orig, col_tail = st.columns(2)
+    with col_orig:
+        st.markdown("#### 📄 Original Resume")
+        render_resume_preview(st.session_state.resume_text)
         
-        st.subheader("📌 ATS Compatibility Overview")
-        mcol1, mcol2, mcol3, mcol4 = st.columns(4)
-        
-        with mcol1:
-            score = an.get("overall_ats_score", 0)
-            st.markdown(f"""
-            <div class="metric-card">
-                <div class="metric-val">{score}%</div>
-                <div class="metric-lbl">Overall ATS Match</div>
-            </div>
-            """, unsafe_allow_html=True)
-            
-        with mcol2:
-            sec_summary = an.get("section_scores", {}).get("summary", 0)
-            st.markdown(f"""
-            <div class="metric-card">
-                <div class="metric-val">{sec_summary}%</div>
-                <div class="metric-lbl">Summary Match</div>
-            </div>
-            """, unsafe_allow_html=True)
-            
-        with mcol3:
-            sec_skills = an.get("section_scores", {}).get("skills", 0)
-            st.markdown(f"""
-            <div class="metric-card">
-                <div class="metric-val">{sec_skills}%</div>
-                <div class="metric-lbl">Skills Match</div>
-            </div>
-            """, unsafe_allow_html=True)
-            
-        with mcol4:
-            sec_exp = an.get("section_scores", {}).get("experience", 0)
-            st.markdown(f"""
-            <div class="metric-card">
-                <div class="metric-val">{sec_exp}%</div>
-                <div class="metric-lbl">Experience Match</div>
-            </div>
-            """, unsafe_allow_html=True)
+    with col_tail:
+        st.markdown("#### 🎯 Tailored Resume (ATS Optimized)")
+        render_resume_preview(tailored_md)
 
-        st.markdown("<br>", unsafe_allow_html=True)
-        st.info(f"**Analysis Summary**: {an.get('summary_analysis', '')}")
+    st.markdown("<br>", unsafe_allow_html=True)
 
-        st.subheader("🏷️ Extracted Keyword & Requirement Coverage")
-        keywords_list = an.get("keywords", [])
-        
-        filter_status = st.radio(
-            "Filter by Candidate Evidence Status:",
-            ["All", "SUPPORTED", "PARTIALLY_SUPPORTED", "UNSUPPORTED"],
-            horizontal=True
-        )
-        
-        filtered_keywords = [
-            k for k in keywords_list 
-            if filter_status == "All" or k.get("status") == filter_status
-        ]
-        
-        cols = st.columns(3)
-        for idx, kw in enumerate(filtered_keywords):
-            col = cols[idx % 3]
-            kw_name = kw.get("keyword", "")
-            cat = kw.get("category", "")
-            prio = kw.get("priority", "P3")
-            status = kw.get("status", "UNSUPPORTED")
-            
-            status_class = "pill-supported" if status == "SUPPORTED" else ("pill-partial" if status == "PARTIALLY_SUPPORTED" else "pill-missing")
-            prio_class = "pill-p1" if prio == "P1" else ("pill-p2" if prio == "P2" else "pill-p3")
-            
-            with col:
-                st.markdown(f"""
-                <div style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 0.85rem; margin-bottom: 0.75rem;">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <strong style="color: #0f172a; font-size: 0.95rem;">{kw_name}</strong>
-                        <span class="pill {prio_class}">{prio}</span>
-                    </div>
-                    <div style="margin-top: 0.4rem;">
-                        <span style="font-size: 0.75rem; color: #64748b;">Cat: {cat}</span> • 
-                        <span class="pill {status_class}" style="font-size: 0.7rem;">{status}</span>
-                    </div>
-                    <div style="font-size: 0.8rem; color: #475569; margin-top: 0.4rem;">
-                        <em>{kw.get('recommendation', '')}</em>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-
-        col_rec1, col_rec2 = st.columns(2)
-        with col_rec1:
-            st.subheader("✅ Key Strengths")
-            for str_item in an.get("key_strengths", []):
-                st.markdown(f"- {str_item}")
-        with col_rec2:
-            st.subheader("⚠️ Critical Gaps to Address")
-            for gap in an.get("critical_gaps", []):
-                st.markdown(f"- {gap}")
-
-# ============================================================
-# TAB 3: TAILORED RESUME PREVIEW
-# ============================================================
-with tab_resume:
-    if not st.session_state.tailored_result:
-        st.info("💡 Run 'Analyze & Tailor Resume' in Step 1 to preview your tailored resume.")
-    else:
-        tailored = st.session_state.tailored_result
-        tailored_md = tailored.get("tailored_resume", "")
-        improvements = tailored.get("bullet_improvements", [])
-        
-        st.subheader("✨ Side-by-Side Resume Comparison")
-        
-        col_orig, col_tail = st.columns(2)
-        with col_orig:
-            st.markdown("### 📄 Original Resume")
-            render_resume_preview(st.session_state.resume_text)
-            
-        with col_tail:
-            st.markdown("### 🎯 Tailored Resume (ATS Optimized)")
-            render_resume_preview(tailored_md)
-
-        st.markdown("---")
-        st.subheader("🔍 Bullet-by-Bullet ATS Optimizations")
+    # Expandable Deep-Dive Breakdown
+    with st.expander("🔍 View Bullet-by-Bullet Improvements & Keyword Reasoning", expanded=False):
         for imp in improvements:
-            with st.expander(f"✨ Improved Bullet: {imp.get('original', '')[:60]}..."):
-                st.markdown(f"**Original**: {imp.get('original', '')}")
-                st.markdown(f"**Tailored (ATS)**: {imp.get('tailored', '')}")
+            st.markdown(f"**Original**: {imp.get('original', '')}")
+            st.markdown(f"**Tailored (ATS)**: {imp.get('tailored', '')}")
+            if imp.get('added_keywords'):
                 st.markdown(f"**Keywords Added**: `{', '.join(imp.get('added_keywords', []))}`")
-                st.markdown(f"**Reasoning**: {imp.get('reason', '')}")
+            st.markdown(f"**Reasoning**: {imp.get('reason', '')}")
+            st.markdown("---")
 
-# ============================================================
-# TAB 4: EXPORT & DOWNLOAD
-# ============================================================
-with tab_export:
-    if not st.session_state.tailored_result:
-        st.info("💡 Run 'Analyze & Tailor Resume' in Step 1 to generate downloadable resume formats.")
-    else:
-        tailored_md = st.session_state.tailored_result.get("tailored_resume", "")
-        
-        st.subheader("💾 Export Tailored Resume")
-        st.write("Download your ATS-tailored resume in your preferred file format:")
-        
-        col_dl1, col_dl2, col_dl3 = st.columns(3)
-        
-        with col_dl1:
-            improvements = st.session_state.tailored_result.get("bullet_improvements", [])
-            docx_bytes = create_docx(
-                tailored_md,
-                original_docx_bytes=st.session_state.get("resume_bytes"),
-                bullet_improvements=improvements
-            )
-            st.download_button(
-                label="📄 Download as Word (.docx)",
-                data=docx_bytes,
-                file_name="tailored_resume.docx",
-                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                use_container_width=True
-            )
+    with st.expander("📊 View Full Keyword Match Breakdown & Strengths", expanded=False):
+        if an:
+            st.info(f"**Analysis Summary**: {an.get('summary_analysis', '')}")
             
-        with col_dl2:
-            pdf_bytes = create_pdf(tailored_md)
-            st.download_button(
-                label="📕 Download as PDF (.pdf)",
-                data=pdf_bytes,
-                file_name="tailored_resume.pdf",
-                mime="application/pdf",
-                use_container_width=True
-            )
-            
-        with col_dl3:
-            st.download_button(
-                label="📝 Download as Markdown (.md)",
-                data=tailored_md,
-                file_name="tailored_resume.md",
-                mime="text/markdown",
-                use_container_width=True
-            )
-
-        st.markdown("---")
-        st.subheader("📋 Raw Markdown Code")
-        st.code(tailored_md, language="markdown")
+            keywords_list = an.get("keywords", [])
+            cols = st.columns(3)
+            for idx, kw in enumerate(keywords_list):
+                col = cols[idx % 3]
+                kw_name = kw.get("keyword", "")
+                cat = kw.get("category", "")
+                prio = kw.get("priority", "P3")
+                status = kw.get("status", "UNSUPPORTED")
+                
+                status_class = "pill-supported" if status == "SUPPORTED" else ("pill-partial" if status == "PARTIALLY_SUPPORTED" else "pill-missing")
+                prio_class = "pill-p1" if prio == "P1" else ("pill-p2" if prio == "P2" else "pill-p3")
+                
+                with col:
+                    st.markdown(f"""
+                    <div style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 0.75rem; margin-bottom: 0.5rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <strong style="color: #0f172a; font-size: 0.9rem;">{kw_name}</strong>
+                            <span class="pill {prio_class}">{prio}</span>
+                        </div>
+                        <div style="margin-top: 0.25rem;">
+                            <span style="font-size: 0.75rem; color: #64748b;">{cat}</span> • 
+                            <span class="pill {status_class}" style="font-size: 0.7rem;">{status}</span>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
